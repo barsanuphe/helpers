@@ -2,8 +2,8 @@ package helpers
 
 import "strings"
 
-// StringInSlice checks if a string is in a []string.
-func StringInSlice(a string, list []string) (index int, isIn bool) {
+// StringInSlice checks if a string is in a []string, return index and bool.
+func StringInSlice(a string, list []string) (int, bool) {
 	for i, b := range list {
 		if b == a {
 			return i, true
@@ -42,6 +42,5 @@ func StringInSliceCaseInsensitive(a string, list []string) (index int, isIn bool
 
 // CaseInsensitiveContains checks if a substring is in a string, regardless of case.
 func CaseInsensitiveContains(s, substr string) bool {
-	s, substr = strings.ToLower(s), strings.ToLower(substr)
-	return strings.Contains(s, substr)
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
