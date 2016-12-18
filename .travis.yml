@@ -1,0 +1,24 @@
+language: go
+sudo: required
+dist: trusty
+go:
+  - 1.6
+  - 1.7
+  - tip
+
+before_install:
+  - git clone https://github.com/libgit2/git2go $HOME/git2go
+  - $HOME/git2go/script/install-libgit2.sh
+  - go get github.com/axw/gocov/gocov
+  - go get github.com/golang/lint/golint
+  - go get github.com/stretchr/testify
+  - if ! go get github.com/golang/tools/cmd/cover; then go get golang.org/x/tools/cmd/cover; fi
+
+script:
+    - go vet -x ./...
+    - $HOME/gopath/bin/golint ./...
+    - sh test/coverage.sh
+
+after_script:
+    - bash <(curl -s https://codecov.io/bash)
+
