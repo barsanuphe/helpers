@@ -52,3 +52,13 @@ func SpinWhileThingsHappen(title string, f func() error) (err error) {
 	}
 	return
 }
+
+// CheckErrors and return the first non-nil one.
+func CheckErrors(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

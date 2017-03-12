@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,7 +71,7 @@ func FileExists(path string) (absolutePath string, err error) {
 	if AbsoluteFileExists(candidate) {
 		absolutePath = candidate
 	} else {
-		err = errors.New("File does not exist")
+		return "", os.ErrNotExist
 	}
 	return
 }
@@ -122,9 +123,59 @@ func DeleteEmptyFolders(root string, ui i.UserInterface) (err error) {
 	return
 }
 
+// CopyDir recursively copies a directory tree, attempting to preserve permissions.
+// Source directory must exist, destination directory must *not* exist.
+// Symlinks are ignored and skipped.
+func CopyDir(src string, dst string) (err error) {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
+	si, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !si.IsDir() {
+		return errors.New("source is not a directory")
+	}
+	_, err = os.Stat(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return
+	}
+	if err == nil {
+		return errors.New("destination already exists")
+	}
+	err = os.MkdirAll(dst, si.Mode())
+	if err != nil {
+		return
+	}
+	entries, err := ioutil.ReadDir(src)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		if entry.IsDir() {
+			err = CopyDir(srcPath, dstPath)
+			if err != nil {
+				return
+			}
+		} else {
+			// Skip symlinks.
+			if entry.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+			err = CopyFile(srcPath, dstPath)
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
 // CopyFile copies a file from src to dst. If src and dst files exist, and are
-// the same, then return success. Otherise, attempt to create a hard link
-// between the two files. If that fail, copy the file contents from src to dst.
+// the same, then return success. Copy the file contents from src to dst.
 func CopyFile(src, dst string) (err error) {
 	sfi, err := os.Stat(src)
 	if err != nil {
@@ -147,9 +198,6 @@ func CopyFile(src, dst string) (err error) {
 		if os.SameFile(sfi, dfi) {
 			return
 		}
-	}
-	if err = os.Link(src, dst); err == nil {
-		return
 	}
 	err = copyFileContents(src, dst)
 	return
@@ -182,22 +230,20 @@ func copyFileContents(src, dst string) (err error) {
 	return
 }
 
-// CalculateSHA256 calculates an epub's current hash
-func CalculateSHA256(filename string) (hash string, err error) {
-	var result []byte
+// CalculateSHA256 calculates a file's current hash
+func CalculateSHA256(filename string) (string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return
+		return "", err
 	}
 	defer file.Close()
 
 	hashBytes := sha256.New()
 	_, err = io.Copy(hashBytes, file)
 	if err != nil {
-		return
+		return "", err
 	}
-	hash = hex.EncodeToString(hashBytes.Sum(result))
-	return
+	return hex.EncodeToString(hashBytes.Sum(nil)), err
 }
 
 // GetUniqueTimestampedFilename for a given filename.
